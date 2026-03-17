@@ -1,6 +1,7 @@
 # Imports
 import numpy as np
 from math import gcd
+from fractions import Fraction
 
 # Quantum
 from qiskit import QuantumCircuit
@@ -96,7 +97,7 @@ qc.draw('mpl')
 # Simulate the Circuit
 # Initialize Circuit Simulation Components
 sampler=AerSampler()
-job_sim = sampler.run(qc , shots=4096 * 2**8)
+job_sim = sampler.run(qc , shots=4096)
 
 # Simulate the Circuit and Plot the results in a Histogram
 quasi_dists = job_sim.result().quasi_dists[0].binary_probabilities()
@@ -107,32 +108,44 @@ threshold = 0.02
 filtered_dists = {k: v for k, v in quasi_dists.items() if v > threshold}
 plot_histogram(filtered_dists, figsize=(20, 10))
 
-
 # Convert the Counting register to Integers 
 intKeys = list(filtered_dists.keys())
 intKeyDecimals = [int(k, 2) for k in intKeys]
-
-print(intKeys)
-print(intKeyDecimals)
 
 # Calculate the s/r or Thetas
 denom = 2**CountingRegisterQubits
 
 thetas = [i / denom for i in intKeyDecimals]
 
-print(thetas)
+# Calculate the r values using a fraction
+rValues = [Fraction(y, denom).limit_denominator(N).denominator for y in intKeyDecimals]
 
-thetaAdjusted = [i * 12 for i in thetas]
+print(f"Decimal Keys: {intKeyDecimals}")
+print(f"Phases: {thetas}")
+print(f"Candidate r values: {rValues}")
 
-print(thetaAdjusted)
-
-# Calculate the prime factors
-r = 12
-rDiv2 = int(r/2)
-
-p = gcd(x**(rDiv2) + 1, N)
-q = gcd(x**(rDiv2) - 1, N)
-
-print(f"The prime factors of {N} are :")
-print(f"q = {q}")
-print(f"p = {p}")
+# Find the Factors that are equal to modulo 0
+for r in rValues:
+    # Skip if r is 0 (from y=0) or odd
+    if r == 0 or r % 2 != 0:
+        continue
+        
+    # Calculate x = a^(r/2) % N
+    rDiv2 = r // 2
+    x_val = pow(a, rDiv2, N)
+    
+    # Check if x + 1 is a multiple of N
+    if (x_val + 1) % N == 0:
+        continue
+        
+    # Calculate factors
+    p = gcd(x_val + 1, N)
+    q = gcd(x_val - 1, N)
+    
+    # If we found non-trivial factors, we are done
+    if p > 1 and q > 1:
+        print(f"\nSuccess found with r = {r}")
+        print(f"The prime factors of {N} are :")
+        print(f"p = {p}")
+        print(f"q = {q}")
+        break
